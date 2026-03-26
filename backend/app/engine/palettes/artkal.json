@@ -1,0 +1,135 @@
+{
+  "brand": "artkal",
+  "name": "Artkal S-5mm 标准色",
+  "version": "2024",
+  "colors": [
+    {
+      "id": "S01",
+      "name": "白色",
+      "name_en": "White",
+      "hex": "#FFFFFF",
+      "rgb": [255, 255, 255],
+      "category": "neutral"
+    },
+    {
+      "id": "S02",
+      "name": "奶白",
+      "name_en": "Cream",
+      "hex": "#FFF8DC",
+      "rgb": [255, 248, 220],
+      "category": "warm"
+    },
+    {
+      "id": "S03",
+      "name": "浅黄",
+      "name_en": "Light Yellow",
+      "hex": "#FFFFE0",
+      "rgb": [255, 255, 224],
+      "category": "yellow"
+    },
+    {
+      "id": "S04",
+      "name": "黄色",
+      "name_en": "Yellow",
+      "hex": "#FFD700",
+      "rgb": [255, 215, 0],
+      "category": "yellow"
+    },
+    {
+      "id": "S05",
+      "name": "橙色",
+      "name_en": "Orange",
+      "hex": "#FFA500",
+      "rgb": [255, 165, 0],
+      "category": "orange"
+    },
+    {
+      "id": "S06",
+      "name": "红色",
+      "name_en": "Red",
+      "hex": "#FF0000",
+      "rgb": [255, 0, 0],
+      "category": "red"
+    },
+    {
+      "id": "S07",
+      "name": "粉红",
+      "name_en": "Pink",
+      "hex": "#FFC0CB",
+      "rgb": [255, 192, 203],
+      "category": "pink"
+    },
+    {
+      "id": "S08",
+      "name": "紫色",
+      "name_en": "Purple",
+      "hex": "#800080",
+      "rgb": [128, 0, 128],
+      "category": "purple"
+    },
+    {
+      "id": "S09",
+      "name": "蓝色",
+      "name_en": "Blue",
+      "hex": "#0000FF",
+      "rgb": [0, 0, 255],
+      "category": "blue"
+    },
+    {
+      "id": "S10",
+      "name": "天蓝",
+      "name_en": "Sky Blue",
+      "hex": "#87CEEB",
+      "rgb": [135, 206, 235],
+      "category": "blue"
+    },
+    {
+      "id": "S11",
+      "name": "青色",
+      "name_en": "Cyan",
+      "hex": "#00FFFF",
+      "rgb": [0, 255, 255],
+      "category": "cyan"
+    },
+    {
+      "id": "S12",
+      "name": "绿色",
+      "name_en": "Green",
+      "hex": "#008000",
+      "rgb": [0, 128, 0],
+      "category": "green"
+    },
+    {
+      "id": "S13",
+      "name": "浅绿",
+      "name_en": "Light Green",
+      "hex": "#90EE90",
+      "rgb": [144, 238, 144],
+      "category": "green"
+    },
+    {
+      "id": "S14",
+      "name": "棕色",
+      "name_en": "Brown",
+      "hex": "#A52A2A",
+      "rgb": [165, 42, 42],
+      "category": "brown"
+    },
+    {
+      "id": "S15",
+      "name": "灰色",
+      "name_en": "Gray",
+      "hex": "#808080",
+      "rgb": [128, 128, 128],
+      "category": "neutral"
+    },
+    {
+      "id": "S16",
+      "name": "黑色",
+      "name_en": "Black",
+      "hex": "#000000",
+      "rgb": [0, 0, 0],
+      "category": "neutral"
+    }
+  ]
+}
