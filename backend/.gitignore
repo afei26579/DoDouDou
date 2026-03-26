@@ -32,6 +32,8 @@ env/
 *.swp
 *.swo
 *~
+CLAUDE.MD
+
 
 # Environment variables
 .env
@@ -63,3 +65,8 @@ migrations/versions/*.pyc
 # Uploads
 uploads/
 temp/
+
+#Docs
+
+.MD/*
+./docs/*
