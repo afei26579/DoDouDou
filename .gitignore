@@ -75,3 +75,6 @@ dist/
 # Uploads
 uploads/
 temp/
+
+#Docs
+docs/*

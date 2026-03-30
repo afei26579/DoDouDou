@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.api.v1 import router as api_v1_router
+from app.core.cache import cache_client
 
 
 def create_app() -> FastAPI:
@@ -21,6 +22,18 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Startup event
+    @app.on_event("startup")
+    async def startup_event():
+        """Initialize services on startup"""
+        await cache_client.connect()
+
+    # Shutdown event
+    @app.on_event("shutdown")
+    async def shutdown_event():
+        """Cleanup on shutdown"""
+        await cache_client.disconnect()
 
     # Include API router
     app.include_router(api_v1_router, prefix=settings.API_V1_PREFIX)

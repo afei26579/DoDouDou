@@ -1,16 +1,22 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Layout from './components/Layout';
 import Home from './pages/Home';
+import Templates from './pages/Templates';
+import Works from './pages/Works';
+import Profile from './pages/Profile';
 
 function App() {
   return (
     <Router>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/convert" element={<div className="p-8">转图页面 - 开发中</div>} />
-        <Route path="/templates" element={<div className="p-8">模板库 - 开发中</div>} />
-        <Route path="/works" element={<div className="p-8">我的作品 - 开发中</div>} />
-        <Route path="/profile" element={<div className="p-8">我的 - 开发中</div>} />
-      </Routes>
+      <Layout>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/templates" element={<Templates />} />
+          <Route path="/works" element={<Works />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/convert/upload" element={<div className="p-8">图片上传 - 开发中</div>} />
+        </Routes>
+      </Layout>
     </Router>
   );
 }

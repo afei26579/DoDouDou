@@ -35,20 +35,37 @@ class ApiClient {
       },
       async (error) => {
         if (error.response?.status === 401) {
-          // Token expired, try to refresh
+          const originalRequest = error.config;
+
+          // Avoid infinite loop
+          if (originalRequest._retry) {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            window.location.href = '/login';
+            return Promise.reject(error);
+          }
+
+          originalRequest._retry = true;
           const refreshToken = localStorage.getItem('refresh_token');
+
           if (refreshToken) {
             try {
-              // TODO: Implement token refresh logic
-              console.log('Token refresh needed');
+              const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+                refresh_token: refreshToken,
+              });
+
+              const { access_token, refresh_token: newRefreshToken } = response.data;
+              localStorage.setItem('access_token', access_token);
+              localStorage.setItem('refresh_token', newRefreshToken);
+
+              originalRequest.headers.Authorization = `Bearer ${access_token}`;
+              return this.client(originalRequest);
             } catch (refreshError) {
-              // Refresh failed, logout
               localStorage.removeItem('access_token');
               localStorage.removeItem('refresh_token');
               window.location.href = '/login';
             }
           } else {
-            // No refresh token, logout
             localStorage.removeItem('access_token');
             window.location.href = '/login';
           }
