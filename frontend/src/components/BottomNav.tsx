@@ -8,8 +8,8 @@ interface TabItem {
 
 const tabs: TabItem[] = [
   { path: '/', label: '首页', icon: '🏠' },
-  { path: '/templates', label: '模板库', icon: '📋' },
-  { path: '/works', label: '我的作品', icon: '🎨' },
+  { path: '/create', label: '创作', icon: '🎨' },
+  { path: '/community', label: '社区', icon: '💡' },
   { path: '/profile', label: '我的', icon: '👤' },
 ];
 
