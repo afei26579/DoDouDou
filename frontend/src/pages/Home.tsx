@@ -49,16 +49,16 @@ export default function Home() {
 
   const actionSheetOptions = [
     {
-      icon: '📷',
-      label: '拍照转图纸',
-      sublabel: '调用相机拍照',
-      onClick: () => navigate('/create?mode=camera')
+      icon: '🖼️',
+      label: '图片转图纸',
+      sublabel: '上传本地图片',
+      onClick: () => navigate('/create?mode=upload')
     },
     {
-      icon: '🖼️',
-      label: '从相册选择',
-      sublabel: '选择已有图片',
-      onClick: () => navigate('/create?mode=gallery')
+      icon: '✨',
+      label: 'AI创作图纸',
+      sublabel: '智能生成像素画',
+      onClick: () => navigate('/create?mode=ai')
     },
     {
       icon: '📁',
@@ -134,7 +134,7 @@ export default function Home() {
 
               {/* 副文案 */}
               <p className="text-sm text-gray-500 mb-8">
-                拍照 或 从相册导入图片
+                上传图片 或 AI创作
               </p>
 
               <span className="text-xs text-gray-400 font-light">
