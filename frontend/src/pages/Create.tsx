@@ -1,19 +1,17 @@
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useState, useRef } from 'react';
-import { ArrowLeft, Upload, Loader2, ChevronDown, ChevronUp, RefreshCw, Edit3 } from 'lucide-react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useEffect, useState, useRef } from 'react';
+import { ArrowLeft, Upload, Loader2, RefreshCw, Edit3 } from 'lucide-react';
 
-type ColorBrand = 'auto' | 'mard' | 'coco' | 'manman' | 'artkal';
-type PresetMode = 'beginner' | 'standard' | 'professional';
+type ColorBrand = 'mard' | 'coco' | 'manman' | 'panpan' | 'mixiaowo';
+type ConvertMode = 'realistic' | 'cartoon' | 'adaptive';
+type ConvertSize = number;
+type ThresholdLevel = 'low' | 'medium' | 'high';
 
 interface ConversionParams {
-  boardWidth: number;
-  boardHeight: number;
   colorBrand: ColorBrand;
-  colorCount: number | 'auto';
-  removeBackground: boolean;
-  enhanceContrast: boolean;
-  optimizeEdges: boolean;
-  removeNoise: boolean;
+  mode: ConvertMode;
+  size: ConvertSize;
+  threshold: ThresholdLevel;
 }
 
 interface ConversionResult {
@@ -21,8 +19,6 @@ interface ConversionResult {
   convertedGrid: string[][];
   preview: string;
   stats: {
-    width: number;
-    height: number;
     colors: number;
     beadCount: number;
     estimatedTime: string;
@@ -30,113 +26,157 @@ interface ConversionResult {
   };
 }
 
+const COLOR_BRANDS: { id: ColorBrand; name: string }[] = [
+  { id: 'mard', name: 'MARD' },
+  { id: 'coco', name: 'COCO' },
+  { id: 'manman', name: '漫漫' },
+  { id: 'panpan', name: '盼盼' },
+  { id: 'mixiaowo', name: '咪小窝' }
+];
+
+const MODE_OPTIONS: { id: ConvertMode; name: string }[] = [
+  { id: 'realistic', name: '写实' },
+  { id: 'cartoon', name: '卡通' },
+  { id: 'adaptive', name: '自适应' }
+];
+
+const SIZE_MIN = 30;
+const SIZE_MAX = 300;
+const DEFAULT_SIZE = 100;
+
+const THRESHOLD_OPTIONS: { id: ThresholdLevel; name: string }[] = [
+  { id: 'low', name: '低' },
+  { id: 'medium', name: '中' },
+  { id: 'high', name: '高' }
+];
+
 export default function Create() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
-  // mode参数预留给AI创作等其他模式使用
-  searchParams.get('mode');
+  const mode = searchParams.get('mode');
 
-  // 转换状态
   const [step, setStep] = useState<'input' | 'converting' | 'result'>('input');
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [conversionResult, setConversionResult] = useState<ConversionResult | null>(null);
 
-  // 参数设置
-  const [showParams, setShowParams] = useState(true);
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [params, setParams] = useState<ConversionParams>({
-    boardWidth: 52,
-    boardHeight: 52,
-    colorBrand: 'auto',
-    colorCount: 'auto',
-    removeBackground: false,
-    enhanceContrast: true,
-    optimizeEdges: true,
-    removeNoise: true
+    colorBrand: 'mard',
+    mode: 'realistic',
+    size: DEFAULT_SIZE,
+    threshold: 'medium'
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 常用尺寸预设
-  const commonSizes = [
-    { label: '29×29', width: 29, height: 29, desc: '小型' },
-    { label: '52×52', width: 52, height: 52, desc: '标准' },
-    { label: '58×58', width: 58, height: 58, desc: '大型' }
-  ];
-
-  // 色系品牌
-  const colorBrands = [
-    { id: 'auto' as ColorBrand, name: '智能选色', colors: 0, desc: '自动选择最佳颜色' },
-    { id: 'mard' as ColorBrand, name: 'MARD', colors: 30, desc: '30色，性价比高' },
-    { id: 'coco' as ColorBrand, name: 'COCO', colors: 48, desc: '48色，色彩丰富' },
-    { id: 'manman' as ColorBrand, name: '漫漫', colors: 36, desc: '36色，质量优' },
-    { id: 'artkal' as ColorBrand, name: 'Artkal', colors: 30, desc: '30色，进口品质' }
-  ];
-
-  // 预设模式
-  const presetModes: { id: PresetMode; name: string; desc: string; params: Partial<ConversionParams> }[] = [
-    {
-      id: 'beginner',
-      name: '新手模式',
-      desc: '小尺寸，少颜色，快速完成',
-      params: { boardWidth: 29, boardHeight: 29, colorCount: 8 }
-    },
-    {
-      id: 'standard',
-      name: '标准模式',
-      desc: '中等尺寸，适中颜色',
-      params: { boardWidth: 52, boardHeight: 52, colorCount: 15 }
-    },
-    {
-      id: 'professional',
-      name: '专业模式',
-      desc: '大尺寸，丰富颜色，细节保留',
-      params: { boardWidth: 58, boardHeight: 58, colorCount: 25 }
+  useEffect(() => {
+    const preloadedImage = (location.state as { preloadedImage?: string } | null)?.preloadedImage;
+    if (preloadedImage) {
+      setUploadedImage(preloadedImage);
+      handleConvert(preloadedImage);
+      navigate(location.pathname, { replace: true, state: null });
+      return;
     }
-  ];
 
-  // 应用预设模式
-  const applyPreset = (preset: PresetMode) => {
-    const presetConfig = presetModes.find(p => p.id === preset);
-    if (presetConfig) {
-      setParams(prev => ({ ...prev, ...presetConfig.params }));
+    if (mode === 'upload') {
+      const timer = window.setTimeout(() => {
+        fileInputRef.current?.click();
+      }, 50);
+      return () => window.clearTimeout(timer);
     }
-  };
+  }, [mode, location.state]);
 
-  // 处理文件选择
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const imageData = event.target?.result as string;
-        setUploadedImage(imageData);
-        handleConvert(imageData);
-      };
-      reader.readAsDataURL(file);
-    }
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const imageData = event.target?.result as string;
+      setUploadedImage(imageData);
+      handleConvert(imageData);
+    };
+    reader.readAsDataURL(file);
   };
 
-  // 转换图纸
+  const buildMockBlueprintPreview = async (imageData: string): Promise<string> => {
+    const img = new Image();
+    img.src = imageData;
+
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error('图片加载失败'));
+    });
+
+    const gridSize = params.size;
+    const smallCanvas = document.createElement('canvas');
+    smallCanvas.width = gridSize;
+    smallCanvas.height = gridSize;
+    const smallCtx = smallCanvas.getContext('2d');
+    if (!smallCtx) return imageData;
+
+    const side = Math.min(img.width, img.height);
+    const sx = Math.floor((img.width - side) / 2);
+    const sy = Math.floor((img.height - side) / 2);
+    smallCtx.drawImage(img, sx, sy, side, side, 0, 0, gridSize, gridSize);
+
+    const image = smallCtx.getImageData(0, 0, gridSize, gridSize);
+    const data = image.data;
+
+    const levels = params.mode === 'cartoon' ? 4 : params.mode === 'realistic' ? 7 : 5;
+    const step = Math.max(1, Math.floor(256 / levels));
+
+    for (let i = 0; i < data.length; i += 4) {
+      data[i] = Math.min(255, Math.round(data[i] / step) * step);
+      data[i + 1] = Math.min(255, Math.round(data[i + 1] / step) * step);
+      data[i + 2] = Math.min(255, Math.round(data[i + 2] / step) * step);
+    }
+    smallCtx.putImageData(image, 0, 0);
+
+    const previewSize = 900;
+    const previewCanvas = document.createElement('canvas');
+    previewCanvas.width = previewSize;
+    previewCanvas.height = previewSize;
+    const previewCtx = previewCanvas.getContext('2d');
+    if (!previewCtx) return imageData;
+
+    previewCtx.imageSmoothingEnabled = false;
+    previewCtx.drawImage(smallCanvas, 0, 0, previewSize, previewSize);
+
+    const cell = previewSize / gridSize;
+    previewCtx.strokeStyle = 'rgba(0,0,0,0.12)';
+    previewCtx.lineWidth = 1;
+    for (let i = 0; i <= gridSize; i++) {
+      const p = Math.round(i * cell) + 0.5;
+      previewCtx.beginPath();
+      previewCtx.moveTo(p, 0);
+      previewCtx.lineTo(p, previewSize);
+      previewCtx.stroke();
+
+      previewCtx.beginPath();
+      previewCtx.moveTo(0, p);
+      previewCtx.lineTo(previewSize, p);
+      previewCtx.stroke();
+    }
+
+    return previewCanvas.toDataURL('image/png');
+  };
+
   const handleConvert = async (imageData: string) => {
     setStep('converting');
-    setShowParams(false); // 转换时自动收起参数
 
-    // TODO: 调用后端API进行转换
-    // 模拟转换过程
-    await new Promise(resolve => setTimeout(resolve, 2500));
+    await new Promise(resolve => setTimeout(resolve, 800));
+    const preview = await buildMockBlueprintPreview(imageData);
 
-    // 模拟生成结果
+    const beadCount = params.size * params.size;
     const mockResult: ConversionResult = {
       originalImage: imageData,
-      convertedGrid: [], // TODO: 实际的网格数据
-      preview: imageData,
+      convertedGrid: [],
+      preview,
       stats: {
-        width: params.boardWidth,
-        height: params.boardHeight,
-        colors: typeof params.colorCount === 'number' ? params.colorCount : 12,
-        beadCount: params.boardWidth * params.boardHeight,
-        estimatedTime: calculateEstimatedTime(params.boardWidth * params.boardHeight),
+        colors: params.mode === 'cartoon' ? 14 : params.mode === 'realistic' ? 20 : 18,
+        beadCount,
+        estimatedTime: calculateEstimatedTime(beadCount),
         estimatedCost: '¥45-60'
       }
     };
@@ -145,300 +185,234 @@ export default function Create() {
     setStep('result');
   };
 
-  // 计算预计时间
   const calculateEstimatedTime = (beadCount: number): string => {
-    const minutes = Math.round(beadCount / 50); // 假设每分钟50颗
+    const minutes = Math.round(beadCount / 50);
     if (minutes < 60) return `${minutes}分钟`;
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     return mins > 0 ? `${hours}小时${mins}分钟` : `${hours}小时`;
   };
 
-  // 重新转换
   const handleReconvert = () => {
-    if (uploadedImage) {
-      handleConvert(uploadedImage);
-    }
+    if (uploadedImage) handleConvert(uploadedImage);
   };
 
-  // 更换图片
   const handleChangeImage = () => {
     fileInputRef.current?.click();
   };
 
-  // 进入编辑模式
   const handleEnterEditor = () => {
-    if (conversionResult) {
-      // TODO: 保存图纸数据到状态或后端
-      navigate('/editor/new');
-    }
+    if (conversionResult) navigate('/editor/new');
   };
 
-  // 渲染参数设置区域
-  const renderParamsSection = () => (
-    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-      {/* 参数标题栏 */}
-      <button
-        onClick={() => setShowParams(!showParams)}
-        className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
-      >
-        <div className="flex items-center gap-2">
-          {showParams ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
-          <span className="text-sm font-medium text-[#1C1C1E]">参数设置</span>
+  const [activeTag, setActiveTag] = useState<'brand' | 'mode' | 'size' | 'threshold' | null>(null);
+  const [sizeInput, setSizeInput] = useState(String(DEFAULT_SIZE));
+
+  const clampSize = (value: number) => Math.max(SIZE_MIN, Math.min(SIZE_MAX, value));
+
+  const commitSizeInput = () => {
+    const n = Number(sizeInput);
+    if (Number.isNaN(n)) {
+      setSizeInput(String(params.size));
+      return;
+    }
+    const clamped = clampSize(n);
+    setParams((p) => ({ ...p, size: clamped }));
+    setSizeInput(String(clamped));
+  };
+
+  const renderTagsSection = () => {
+    const tagItems = [
+      {
+        key: 'brand' as const,
+        value: COLOR_BRANDS.find((v) => v.id === params.colorBrand)?.name ?? 'MARD',
+      },
+      {
+        key: 'mode' as const,
+        value: MODE_OPTIONS.find((v) => v.id === params.mode)?.name ?? '写实',
+      },
+      {
+        key: 'size' as const,
+        value: String(params.size),
+      },
+      {
+        key: 'threshold' as const,
+        value: THRESHOLD_OPTIONS.find((v) => v.id === params.threshold)?.name ?? '中',
+      },
+    ];
+
+    if (!activeTag) {
+      return (
+        <div className="bg-white rounded-2xl border border-gray-100 p-3">
+          <div className="grid grid-cols-4 gap-2">
+            {tagItems.map((item) => (
+              <button
+                key={item.key}
+                onClick={() => {
+                  setActiveTag(item.key);
+                  if (item.key === 'size') {
+                    setSizeInput(String(params.size));
+                  }
+                }}
+                className="h-10 rounded-xl border text-sm font-medium transition-colors border-gray-200 text-gray-700 bg-white"
+              >
+                {item.value}
+              </button>
+            ))}
+          </div>
         </div>
-        <span className="text-xs text-gray-400">
-          {params.boardWidth}×{params.boardHeight} · {colorBrands.find(b => b.id === params.colorBrand)?.name}
-        </span>
-      </button>
+      );
+    }
 
-      {/* 参数内容 */}
-      {showParams && (
-        <div className="px-4 pb-4 space-y-4 border-t border-gray-100">
-          {/* 快捷预设 */}
-          <div className="pt-4">
-            <label className="block text-sm font-medium text-[#1C1C1E] mb-3">快捷预设</label>
-            <div className="grid grid-cols-3 gap-2">
-              {presetModes.map((preset) => (
-                <button
-                  key={preset.id}
-                  onClick={() => applyPreset(preset.id)}
-                  className="p-3 rounded-xl border border-gray-200 hover:border-[#1C1C1E] hover:bg-gray-50 transition-all text-left"
-                >
-                  <p className="text-sm font-medium text-[#1C1C1E] mb-1">{preset.name}</p>
-                  <p className="text-xs text-gray-400 line-clamp-2">{preset.desc}</p>
-                </button>
-              ))}
-            </div>
-          </div>
+    const optionItems =
+      activeTag === 'brand'
+        ? COLOR_BRANDS.map((v) => ({ id: v.id, label: v.name }))
+        : activeTag === 'mode'
+          ? MODE_OPTIONS.map((v) => ({ id: v.id, label: v.name }))
+          : THRESHOLD_OPTIONS.map((v) => ({ id: v.id, label: v.name }));
 
-          {/* 板子尺寸 */}
-          <div>
-            <label className="block text-sm font-medium text-[#1C1C1E] mb-3">📐 板子尺寸</label>
-            <div className="grid grid-cols-3 gap-2 mb-3">
-              {commonSizes.map((size) => (
-                <button
-                  key={size.label}
-                  onClick={() => setParams(prev => ({ ...prev, boardWidth: size.width, boardHeight: size.height }))}
-                  className={`p-3 rounded-xl border-2 transition-all ${
-                    params.boardWidth === size.width && params.boardHeight === size.height
-                      ? 'border-[#1C1C1E] bg-gray-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <p className="text-sm font-medium text-[#1C1C1E]">{size.label}</p>
-                  <p className="text-xs text-gray-400">{size.desc}</p>
-                </button>
-              ))}
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">宽度</label>
-                <input
-                  type="number"
-                  min="26"
-                  max="300"
-                  value={params.boardWidth}
-                  onChange={(e) => setParams(prev => ({ ...prev, boardWidth: Math.max(26, Math.min(300, parseInt(e.target.value) || 26)) }))}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-[#1C1C1E] transition-colors"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">高度</label>
-                <input
-                  type="number"
-                  min="26"
-                  max="300"
-                  value={params.boardHeight}
-                  onChange={(e) => setParams(prev => ({ ...prev, boardHeight: Math.max(26, Math.min(300, parseInt(e.target.value) || 26)) }))}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-[#1C1C1E] transition-colors"
-                />
-              </div>
-            </div>
-            <p className="text-xs text-gray-400 mt-2">
-              预计豆豆数：{params.boardWidth * params.boardHeight} 颗 ·
-              预计时间：{calculateEstimatedTime(params.boardWidth * params.boardHeight)}
-            </p>
-          </div>
+    const selectedId =
+      activeTag === 'brand'
+        ? params.colorBrand
+        : activeTag === 'mode'
+          ? params.mode
+          : params.threshold;
 
-          {/* 色系选择 */}
-          <div>
-            <label className="block text-sm font-medium text-[#1C1C1E] mb-3">🎨 色系选择</label>
-            <div className="space-y-2">
-              {colorBrands.map((brand) => (
-                <button
-                  key={brand.id}
-                  onClick={() => setParams(prev => ({ ...prev, colorBrand: brand.id }))}
-                  className={`w-full p-3 rounded-xl border-2 transition-all text-left ${
-                    params.colorBrand === brand.id
-                      ? 'border-[#1C1C1E] bg-gray-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-[#1C1C1E]">{brand.name}</p>
-                      <p className="text-xs text-gray-400">{brand.desc}</p>
-                    </div>
-                    {brand.colors > 0 && (
-                      <span className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-full">
-                        {brand.colors}色
-                      </span>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
+    const applyOption = (id: string) => {
+      if (activeTag === 'brand') {
+        setParams((p) => ({ ...p, colorBrand: id as ColorBrand }));
+      } else if (activeTag === 'mode') {
+        setParams((p) => ({ ...p, mode: id as ConvertMode }));
+      } else {
+        setParams((p) => ({ ...p, threshold: id as ThresholdLevel }));
+      }
+      setActiveTag(null);
+    };
 
-          {/* 去除背景 */}
-          <div>
-            <label className="block text-sm font-medium text-[#1C1C1E] mb-3">✂️ 去除背景</label>
+    return (
+      <div className="bg-white rounded-2xl border border-gray-100 p-3">
+        <div className="grid grid-cols-4 gap-2">
+          {tagItems.map((item) => (
             <button
-              onClick={() => setParams(prev => ({ ...prev, removeBackground: !prev.removeBackground }))}
-              className={`w-full p-3 rounded-xl border-2 transition-all text-left ${
-                params.removeBackground
-                  ? 'border-[#1C1C1E] bg-gray-50'
-                  : 'border-gray-200 hover:border-gray-300'
+              key={item.key}
+              onClick={() => {
+                  setActiveTag(item.key);
+                  if (item.key === 'size') {
+                    setSizeInput(String(params.size));
+                  }
+                }}
+              className={`h-10 rounded-xl border text-sm font-medium transition-colors ${
+                activeTag === item.key
+                  ? 'border-[#1C1C1E] text-[#1C1C1E] bg-gray-50'
+                  : 'border-gray-200 text-gray-700 bg-white'
               }`}
             >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-[#1C1C1E]">智能去除背景</p>
-                  <p className="text-xs text-gray-400">自动识别主体，去除背景</p>
-                </div>
-                <div className={`relative w-12 h-6 rounded-full transition-colors ${
-                  params.removeBackground ? 'bg-[#1C1C1E]' : 'bg-gray-200'
-                }`}>
-                  <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
-                    params.removeBackground ? 'translate-x-6' : 'translate-x-0.5'
-                  }`}></div>
-                </div>
-              </div>
+              {item.value}
             </button>
-          </div>
-
-          {/* 高级选项 */}
-          <div>
-            <button
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              className="flex items-center gap-2 text-sm text-gray-600 hover:text-[#1C1C1E] transition-colors"
-            >
-              {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              <span>高级选项</span>
-            </button>
-
-            {showAdvanced && (
-              <div className="mt-3 space-y-3 pl-6 border-l-2 border-gray-100">
-                {/* 颜色数量 */}
-                <div>
-                  <label className="block text-xs text-gray-600 mb-2">颜色数量</label>
-                  <select
-                    value={params.colorCount}
-                    onChange={(e) => setParams(prev => ({ ...prev, colorCount: e.target.value === 'auto' ? 'auto' : parseInt(e.target.value) }))}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-[#1C1C1E] transition-colors text-sm"
-                  >
-                    <option value="auto">自动</option>
-                    <option value="8">8 种颜色</option>
-                    <option value="15">15 种颜色</option>
-                    <option value="25">25 种颜色</option>
-                  </select>
-                </div>
-
-                {/* 对比度增强 */}
-                <label className="flex items-center justify-between">
-                  <span className="text-xs text-gray-600">对比度增强</span>
-                  <input
-                    type="checkbox"
-                    checked={params.enhanceContrast}
-                    onChange={(e) => setParams(prev => ({ ...prev, enhanceContrast: e.target.checked }))}
-                    className="w-4 h-4"
-                  />
-                </label>
-
-                {/* 边缘优化 */}
-                <label className="flex items-center justify-between">
-                  <span className="text-xs text-gray-600">边缘优化</span>
-                  <input
-                    type="checkbox"
-                    checked={params.optimizeEdges}
-                    onChange={(e) => setParams(prev => ({ ...prev, optimizeEdges: e.target.checked }))}
-                    className="w-4 h-4"
-                  />
-                </label>
-
-                {/* 噪点去除 */}
-                <label className="flex items-center justify-between">
-                  <span className="text-xs text-gray-600">噪点去除</span>
-                  <input
-                    type="checkbox"
-                    checked={params.removeNoise}
-                    onChange={(e) => setParams(prev => ({ ...prev, removeNoise: e.target.checked }))}
-                    className="w-4 h-4"
-                  />
-                </label>
-              </div>
-            )}
-          </div>
+          ))}
         </div>
-      )}
-    </div>
-  );
 
-  // 渲染上传区域
+        {activeTag === 'size' ? (
+          <div className="mt-3 rounded-xl border border-gray-200 p-3">
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min={SIZE_MIN}
+                max={SIZE_MAX}
+                step={1}
+                value={params.size}
+                onChange={(e) => {
+                  const v = clampSize(Number(e.target.value));
+                  setParams((p) => ({ ...p, size: v }));
+                  setSizeInput(String(v));
+                }}
+                className="flex-1"
+              />
+              <input
+                type="text"
+                inputMode="numeric"
+                value={sizeInput}
+                onChange={(e) => setSizeInput(e.target.value.replace(/[^\d]/g, ''))}
+                onBlur={commitSizeInput}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    commitSizeInput();
+                  }
+                }}
+                className={`w-20 h-9 px-2 border rounded-lg text-sm text-center focus:outline-none ${
+                  Number(sizeInput) < SIZE_MIN || Number(sizeInput) > SIZE_MAX
+                    ? 'border-red-300 text-red-500 focus:border-red-400'
+                    : 'border-gray-200 text-[#1C1C1E] focus:border-[#1C1C1E]'
+                }`}
+              />
+              <button
+                onClick={() => {
+                  commitSizeInput();
+                  setActiveTag(null);
+                }}
+                className="h-9 px-3 rounded-lg border border-gray-200 text-sm text-gray-700"
+              >
+                完成
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-3 overflow-x-auto">
+            <div className="flex gap-2 min-w-max pb-1">
+              {optionItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => applyOption(item.id)}
+                  className={`px-4 h-9 rounded-full border text-sm whitespace-nowrap transition-colors ${
+                    selectedId === item.id
+                      ? 'border-[#1C1C1E] bg-[#1C1C1E] text-white'
+                      : 'border-gray-200 text-gray-700 bg-white'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderUploadSection = () => (
     <div
       onClick={() => fileInputRef.current?.click()}
       className="relative border-2 border-dashed border-gray-200 rounded-3xl p-12 text-center cursor-pointer hover:border-gray-300 hover:bg-gray-50 transition-all"
     >
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        onChange={handleFileSelect}
-        className="hidden"
-      />
       <Upload className="w-16 h-16 text-gray-300 mx-auto mb-4" />
       <h3 className="text-lg font-medium text-[#1C1C1E] mb-2">上传图片</h3>
       <p className="text-sm text-gray-400">支持 JPG、PNG、WEBP 格式，最大 10MB</p>
-      <p className="text-xs text-gray-400 mt-2">上传后将自动转换为图纸</p>
+      <p className="text-xs text-gray-400 mt-2">将按当前标签参数生成图纸</p>
     </div>
   );
 
-  // 渲染转换中状态
   const renderConverting = () => (
     <div className="text-center py-16">
       <Loader2 className="w-16 h-16 text-[#1C1C1E] mx-auto mb-6 animate-spin" />
-      <h3 className="text-xl font-medium text-[#1C1C1E] mb-2">正在转换图纸...</h3>
-      <p className="text-sm text-gray-400">根据您的参数生成最佳方案</p>
-      <div className="mt-4 space-y-1 text-xs text-gray-400">
-        <p>✓ 分析图片内容</p>
-        <p>✓ 优化颜色匹配</p>
-        <p>✓ 生成图纸网格</p>
-      </div>
+      <h3 className="text-xl font-medium text-[#1C1C1E] mb-2">正在生成图纸...</h3>
+      <p className="text-sm text-gray-400">参数：{COLOR_BRANDS.find(v => v.id === params.colorBrand)?.name} · {MODE_OPTIONS.find(v => v.id === params.mode)?.name} · {params.size}</p>
     </div>
   );
 
-  // 渲染转换结果
   const renderResult = () => {
     if (!conversionResult) return null;
 
     return (
       <div className="space-y-4">
-        {/* 参数设置（收起状态） */}
-        {renderParamsSection()}
+        {renderTagsSection()}
 
-        {/* 原图预览（小） */}
         <div className="bg-white rounded-2xl p-3 border border-gray-100">
           <div className="flex items-center gap-3">
             <button
               onClick={handleChangeImage}
               className="relative w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 group"
             >
-              <img
-                src={conversionResult.originalImage}
-                alt="原图"
-                className="w-full h-full object-cover"
-              />
+              <img src={conversionResult.originalImage} alt="原图" className="w-full h-full object-cover" />
               <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                 <Upload className="w-6 h-6 text-white" />
               </div>
@@ -447,15 +421,9 @@ export default function Create() {
               <p className="text-sm font-medium text-[#1C1C1E]">原图</p>
               <p className="text-xs text-gray-400 mt-1">点击更换图片</p>
             </div>
-            <div className="text-right">
-              <p className="text-xs text-gray-400">
-                {conversionResult.stats.width}×{conversionResult.stats.height}
-              </p>
-            </div>
           </div>
         </div>
 
-        {/* 转换后的图纸（大） */}
         <div className="bg-white rounded-2xl p-4 border border-gray-100">
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm font-medium text-[#1C1C1E]">转换后的图纸</p>
@@ -468,12 +436,11 @@ export default function Create() {
             </button>
           </div>
 
-          {/* 图纸预览 - 占据主要空间 */}
           <button
             onClick={handleEnterEditor}
             className="relative w-full aspect-square rounded-xl overflow-hidden bg-gray-50 group cursor-pointer"
             style={{
-              backgroundImage: `radial-gradient(circle, #E0E0E5 1px, transparent 1px)`,
+              backgroundImage: 'radial-gradient(circle, #E0E0E5 1px, transparent 1px)',
               backgroundSize: '12px 12px'
             }}
           >
@@ -491,7 +458,6 @@ export default function Create() {
             </div>
           </button>
 
-          {/* 图纸统计信息 */}
           <div className="mt-4 grid grid-cols-2 gap-3">
             <div className="bg-gray-50 rounded-lg p-3">
               <p className="text-xs text-gray-400 mb-1">颜色种类</p>
@@ -512,7 +478,6 @@ export default function Create() {
           </div>
         </div>
 
-        {/* 底部操作按钮 */}
         <div className="grid grid-cols-2 gap-3">
           <button
             onClick={handleReconvert}
@@ -535,7 +500,6 @@ export default function Create() {
 
   return (
     <div className="min-h-screen bg-[#F5F5F7]">
-      {/* Header */}
       <header className="bg-white border-b border-gray-100 sticky top-0 z-10">
         <div className="max-w-screen-xl mx-auto px-4 h-14 flex items-center justify-between">
           <button
@@ -545,15 +509,22 @@ export default function Create() {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <h1 className="text-base font-medium text-[#1C1C1E]">图片转图纸</h1>
-          <div className="w-5"></div>
+          <div className="w-5" />
         </div>
       </header>
 
-      {/* Content */}
       <div className="max-w-screen-xl mx-auto px-4 py-6">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileSelect}
+          className="hidden"
+        />
+
         {step === 'input' && (
           <div className="space-y-4">
-            {renderParamsSection()}
+            {renderTagsSection()}
             {renderUploadSection()}
           </div>
         )}
@@ -563,4 +534,3 @@ export default function Create() {
     </div>
   );
 }
-

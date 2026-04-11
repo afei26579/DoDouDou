@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { Camera, Search, Bell, ChevronRight } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import BottomNav from '../components/BottomNav';
 import ActionSheet from '../components/ActionSheet';
 import DraftLibraryModal from '../components/DraftLibraryModal';
@@ -8,6 +8,7 @@ import TemplateModal from '../components/TemplateModal';
 
 export default function Home() {
   const navigate = useNavigate();
+  const uploadInputRef = useRef<HTMLInputElement>(null);
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [showDraftLibrary, setShowDraftLibrary] = useState(false);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
@@ -47,12 +48,30 @@ export default function Home() {
     { id: '4', name: '星空吊坠', tag: '适合新手', thumbnail: '/placeholder-star.png' }
   ];
 
+  const handlePickImageThenGoCreate = () => {
+    setShowActionSheet(false);
+    uploadInputRef.current?.click();
+  };
+
+  const handleImagePicked = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const imageData = event.target?.result as string;
+      navigate('/create', { state: { preloadedImage: imageData } });
+      e.target.value = '';
+    };
+    reader.readAsDataURL(file);
+  };
+
   const actionSheetOptions = [
     {
       icon: '🖼️',
       label: '图片转图纸',
       sublabel: '上传本地图片',
-      onClick: () => navigate('/create?mode=upload')
+      onClick: handlePickImageThenGoCreate
     },
     {
       icon: '✨',
@@ -263,6 +282,14 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      <input
+        ref={uploadInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleImagePicked}
+        className="hidden"
+      />
 
       {/* 底部导航 */}
       <BottomNav />
